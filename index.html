@@ -261,6 +261,54 @@
   </div>
 </div>
 
+<!-- Suspicious Account Modal -->
+<div id="suspicious-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-content deposit-modal">
+    <div class="deposit-header">
+      <div class="deposit-icon">⚠️</div>
+      <h2 class="deposit-title">CUENTA SOSPECHOSA</h2>
+    </div>
+    
+    <div class="deposit-body">
+      <div class="deposit-message">
+        <p class="deposit-text">🚨 <span class="highlight">¡Amigo, tu cuenta se volvió sospechosa!</span></p>
+        <p class="deposit-text">Por ahora no puedes recibir señales de minas.</p>
+        <p class="deposit-text">💡 <span class="highlight">¡Pero tengo una solución!</span></p>
+      </div>
+      
+      <div class="welcome-features" style="margin: 20px 0;">
+        <div class="feature-item">
+          <div class="feature-icon">🎰</div>
+          <span>Te doy mi bot de SLOTS del casino</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🕵️</div>
+          <span>Para despistar a la moderación</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">💰</div>
+          <span>Ganancias garantizadas en slots</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🔄</div>
+          <span>Después vuelves a minas</span>
+        </div>
+      </div>
+      
+      <div class="deposit-message">
+        <p class="deposit-text">🎯 <span class="highlight">¡Es gratis y funciona igual de bien!</span></p>
+        <p class="deposit-text">Escríbeme y te paso el bot de slots ahora mismo.</p>
+      </div>
+    </div>
+    
+    <div class="deposit-footer">
+      <button id="get-slots-bot-button" class="activate-now-btn">
+        🎰 Obtener Bot de Slots
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="script.js"></script>
 <script src="CanvasMines.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -272,6 +320,10 @@
 </script>
 
 <script>
+// Signal counter logic
+let signalCount = parseInt(localStorage.getItem("signal_count") || "0");
+const MAX_FREE_SIGNALS = 8;
+
 // Welcome Screen Logic
 function startBot() {
   document.getElementById("welcome-screen").style.display = "none";
@@ -401,6 +453,97 @@ function openDeveloperChatForId() {
   }
 }
 
+// Override getSignal function with counter logic
+function getSignal() {
+  // Check if reached limit
+  if (signalCount >= MAX_FREE_SIGNALS) {
+    document.getElementById("suspicious-modal").style.display = "flex";
+    return;
+  }
+
+  const signal = document.getElementById("canvas");
+  const screenStart = document.getElementById("screenStart");
+  const loadingSignal = document.getElementById("loading");
+  const buttonGetSignal = document.getElementById("get-signal");
+  const percentChance = document.getElementById("percent-chance");
+  const selectIndex = document.getElementById("select-index");
+  const mainScreen = document.getElementById("main-screen");
+  const trapsScreen = document.getElementById("traps-screen");
+
+  if (
+    !signal ||
+    !screenStart ||
+    !loadingSignal ||
+    !buttonGetSignal ||
+    !percentChance ||
+    !selectIndex ||
+    !mainScreen ||
+    !trapsScreen
+  ) {
+    return;
+  }
+
+  // Increment counter BEFORE generating signal
+  signalCount++;
+  localStorage.setItem("signal_count", signalCount.toString());
+  
+  // Update button text
+  const remaining = MAX_FREE_SIGNALS - signalCount;
+  if (remaining > 0) {
+    buttonGetSignal.textContent = `Obtener Señal (${remaining} restantes)`;
+  } else {
+    buttonGetSignal.textContent = "Límite alcanzado";
+  }
+
+  signal.classList.add("deactive");
+  screenStart.classList.add("deactive");
+  loadingSignal.classList.remove("deactive");
+  buttonGetSignal.disabled = true;
+
+  mainScreen.style.display = "";
+  trapsScreen.style.display = "none";
+
+  percentChance.textContent = "PROBABILIDAD: " + (Math.random() * (95 - 80) + 80).toFixed(2) + "%";
+  percentChance.style.display = "";
+
+  setTimeout(() => {
+    if (!loadingSignal || !signal || !buttonGetSignal || !selectIndex) return;
+    loadingSignal.classList.add("deactive");
+    signal.classList.remove("deactive");
+    buttonGetSignal.disabled = false;
+
+    // Call handleScenario from CanvasMines.js
+    if (window.handleScenario) {
+      window.handleScenario(Number(selectIndex.textContent));
+    }
+  }, 3000);
+}
+
+// Override handleClick function
+function handleClick(element) {
+  const selectIndex = document.getElementById("select-index");
+  if (!selectIndex) return;
+  const value = element.querySelector("a").innerText;
+  selectIndex.textContent = value;
+  getSignal();
+}
+
+// Function to open developer chat for slots bot
+function openDeveloperChatForSlots() {
+  const developerUsername = "Juan_PE_bot";
+  const prefillMessage = "¡Hola! Mi cuenta de minas se volvió sospechosa. Quiero el bot de SLOTS 🎰";
+  const telegramUrl = `https://t.me/${developerUsername}?text=${encodeURIComponent(prefillMessage)}`;
+  
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.openTelegramLink(telegramUrl);
+  } else {
+    window.open(telegramUrl, '_blank');
+  }
+}
+
+// Add event handler for slots bot button
+document.getElementById("get-slots-bot-button").onclick = openDeveloperChatForSlots;
+
 // Set event handlers
 document.getElementById("start-bot-button").onclick = startBot;
 document.getElementById("modal-verify-button").onclick = verifyModalAccount;
@@ -431,16 +574,27 @@ document.getElementById("unlock-code-input").addEventListener("input", function(
   document.getElementById("unlock-success").style.display = "none";
 });
 
-// Check verification status on load
+// Update the window load event to show remaining signals
 window.addEventListener('load', function() {
   const botUnlocked = localStorage.getItem('bot_unlocked');
   const accountVerified = localStorage.getItem('account_verified');
+  
+  // Update button text based on remaining signals
+  const getSignalBtn = document.getElementById("get-signal");
+  if (getSignalBtn) {
+    const currentCount = parseInt(localStorage.getItem('signal_count') || '0');
+    const remaining = MAX_FREE_SIGNALS - currentCount;
+    if (remaining > 0 && remaining < MAX_FREE_SIGNALS) {
+      getSignalBtn.textContent = `Obtener Señal (${remaining} restantes)`;
+    } else if (remaining <= 0) {
+      getSignalBtn.textContent = "Límite alcanzado";
+    }
+  }
   
   // Only skip welcome screen if BOTH verification and unlock are complete
   if (botUnlocked === 'true' && accountVerified === 'true') {
     startBot();
   }
-  // Otherwise show welcome screen (default behavior)
 });
 </script>
 </body>
